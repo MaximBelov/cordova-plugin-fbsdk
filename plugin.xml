@@ -66,6 +66,9 @@
         <config-file target="AndroidManifest.xml" parent="/*">
             <queries>
                 <package android:name="com.facebook.katana" />
+                <!-- https://developers.facebook.com/docs/android/troubleshooting/#faq_267321845055988 -->
+                <provider android:authorities="com.facebook.katana.provider.PlatformProvider" /> <!-- allows app to access Facebook app features -->
+                <provider android:authorities="com.facebook.orca.provider.PlatformProvider" /> <!-- allows sharing to Messenger app -->
             </queries>
         </config-file>
 
