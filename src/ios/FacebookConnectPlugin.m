@@ -1027,7 +1027,7 @@
 
 void FBMethodSwizzle(Class c, SEL originalSelector) {
     NSString *selectorString = NSStringFromSelector(originalSelector);
-    SEL newSelector = NSSelectorFromString([@"swizzled_" stringByAppendingString:selectorString]);
+    SEL newSelector = NSSelectorFromString([@"FacebookConnectPlugin_" stringByAppendingString:selectorString]);
     SEL noopSelector = NSSelectorFromString([@"noop_" stringByAppendingString:selectorString]);
     Method originalMethod, newMethod, noop;
     originalMethod = class_getInstanceMethod(c, originalSelector);
@@ -1045,7 +1045,7 @@ void FBMethodSwizzle(Class c, SEL originalSelector) {
     FBMethodSwizzle([self class], @selector(application:openURL:options:));
 }
 
-- (BOOL)swizzled_application:(UIApplication *)application openURL:(NSURL *)url options:(NSDictionary<NSString *,id> *)options {
+- (BOOL)FacebookConnectPlugin_application:(UIApplication *)application openURL:(NSURL *)url options:(NSDictionary<NSString *,id> *)options {
     if (!url) {
         return NO;
     }
@@ -1058,7 +1058,7 @@ void FBMethodSwizzle(Class c, SEL originalSelector) {
     NSLog(@"FB handle url using application:openURL:options: %@", url);
 
     // Call existing method
-    return [self swizzled_application:application openURL:url options:options];
+    return [self FacebookConnectPlugin_application:application openURL:url options:options];
 }
 
 - (BOOL)noop_application:(UIApplication *)application openURL:(NSURL *)url options:(NSDictionary<NSString *,id> *)options
