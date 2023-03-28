@@ -2,7 +2,7 @@
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
         xmlns:android="http://schemas.android.com/apk/res/android"
         id="cordova-plugin-fbsdk"
-        version="4.0.3">
+        version="4.0.4">
 
     <name>Facebook Connect</name>
 
@@ -25,9 +25,9 @@
     <preference name="FACEBOOK_AUTO_LOG_APP_EVENTS" default="true" />
     <preference name="FACEBOOK_HYBRID_APP_EVENTS" default="false" />
     <preference name="FACEBOOK_ADVERTISER_ID_COLLECTION" default="true" />
-    <preference name="FACEBOOK_ANDROID_SDK_VERSION" default="14.1.1"/>
-    <preference name="FACEBOOK_IOS_SDK_VERSION" default="14.1.0"/>
-    <preference name="FACEBOOK_BROWSER_SDK_VERSION" default="v14.0" />
+    <preference name="FACEBOOK_ANDROID_SDK_VERSION" default="16.0.1"/>
+    <preference name="FACEBOOK_IOS_SDK_VERSION" default="16.0.1"/>
+    <preference name="FACEBOOK_BROWSER_SDK_VERSION" default="v16.0" />
 
     <engines>
         <engine name="cordova-android" version=">=9.0.0" />
