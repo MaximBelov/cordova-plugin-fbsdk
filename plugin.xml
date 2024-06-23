@@ -110,6 +110,7 @@
             <access origin="https://api.facebook.com" />
             <access origin="https://*.fbcdn.net" />
             <access origin="https://*.akamaihd.net" />
+            <preference name="deployment-target" value="12.0" />
         </config-file>
 
         <header-file src="src/ios/FacebookConnectPlugin.h" />
