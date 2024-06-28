@@ -1,3 +1,10 @@
+<a name="4.1.1"></a>
+
+# [4.1.1](https://github.com/MaximBelov/cordova-plugin-fbsdk/releases/tag/v4.1.1) (2024-06-28)
+
+## Refactor
+* Updated ios after prepare hook
+
 <a name="4.1.0"></a>
 
 # [4.1.0](https://github.com/MaximBelov/cordova-plugin-fbsdk/releases/tag/v4.1.0) (2024-04-23)
