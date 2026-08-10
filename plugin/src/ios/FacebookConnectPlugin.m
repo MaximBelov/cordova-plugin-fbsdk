@@ -20,6 +20,7 @@
 @property (nonatomic, assign) FBSDKLoginTracking *loginTracking;
 @property (strong, nonatomic) NSString* gameRequestDialogCallbackId;
 @property (nonatomic, assign) BOOL applicationWasActivated;
+@property (nonatomic, assign) BOOL sdkInit;
 
 - (NSDictionary *)loginResponseObject;
 - (NSDictionary *)limitedLoginResponseObject;
@@ -31,6 +32,8 @@
 
 - (void)pluginInitialize {
     NSLog(@"Starting Facebook Connect plugin");
+
+    [self initFbSdkWithOpts:nil];
 
     // Add notification listener for tracking app activity with FB Events
     [[NSNotificationCenter defaultCenter] addObserver:self
@@ -47,7 +50,15 @@
 }
 
 - (void) applicationDidFinishLaunching:(NSNotification *) notification {
-    NSDictionary* launchOptions = notification.userInfo;
+    [self initFbSdkWithOpts:notification.userInfo];
+}
+
+- (void) initFbSdkWithOpts:(NSDictionary *) launchOptions {
+    if (self.sdkInit) {
+        return;
+    }
+    self.sdkInit = YES;
+
     if (launchOptions == nil) {
         //launchOptions is nil when not start because of notification or url open
         launchOptions = [NSDictionary dictionary];
@@ -79,7 +90,7 @@
 
 - (void)getApplicationId:(CDVInvokedUrlCommand *)command {
     NSString *appID = FBSDKSettings.sharedSettings.appID;
-    CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:appID];
+    CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
     [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
 }
 
