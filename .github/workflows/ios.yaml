@@ -63,14 +63,18 @@ jobs:
       # same here as it is locally and the lockfile is the only place a version lives.
       #
       # paramedic is pinned to a fork, not apache/cordova-paramedic, for two fixes this
-      # plugin needs -- submitted upstream as apache/cordova-paramedic#314:
-      #  - --plugin appended its --variable args to the plugin path instead of passing
-      #    them as separate argv entries, so the CLI read the whole string as one plugin
-      #    spec. This plugin's APP_ID, APP_NAME and CLIENT_TOKEN are mandatory, so
-      #    installation could not succeed at all.
-      #  - simulator lookup compared the minor version cordova reports (18.3) with the
-      #    patch version xctrace reports (18.3.1) for equality, finding nothing whenever
-      #    the runtime carries a patch component.
+      # plugin needs. Both are upstream and are reviewed separately, so the pin can only be
+      # dropped once BOTH have landed:
+      #  - apache/cordova-paramedic#314 -- --plugin appended its --variable args to the
+      #    plugin path instead of passing them as separate argv entries, so the CLI read the
+      #    whole string as one plugin spec. This plugin's APP_ID, APP_NAME and CLIENT_TOKEN
+      #    are mandatory, so installation could not succeed at all.
+      #  - apache/cordova-paramedic#315 -- simulator lookup compared the minor version
+      #    cordova reports (18.3) with the patch version xctrace reports (18.3.1) for
+      #    equality, finding nothing whenever the runtime carries a patch component.
+      #
+      # The pin is a commit, and MaximBelov/cordova-paramedic@fbsdk-ci-pin exists solely to
+      # keep it reachable while the two branches above are rewritten during review.
       - run: npm ci
 
       # The plugin variables live in the npm script, so the same command runs locally.
