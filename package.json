@@ -4,9 +4,13 @@
   "description": "Repository tooling only. The published package is in plugin/.",
   "scripts": {
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:ios": "cordova-paramedic --platform ios@latest --plugin \"./plugin --variable APP_ID=431082375696800 --variable APP_NAME=FbsdkTests --variable CLIENT_TOKEN=abcd1234\" --ci --verbose --cleanUpAfterRun",
+    "test:android": "cordova-paramedic --platform android@latest --plugin \"./plugin --variable APP_ID=431082375696800 --variable APP_NAME=FbsdkTests --variable CLIENT_TOKEN=abcd1234\" --ci --verbose --cleanUpAfterRun"
   },
   "devDependencies": {
+    "cordova": "13.0.0",
+    "cordova-paramedic": "git+https://github.com/MaximBelov/cordova-paramedic.git#cc42e34e204cc15971ec842deae62b3d70871d7b",
     "prettier": "3.6.2"
   }
 }
