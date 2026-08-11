@@ -46,24 +46,19 @@
                                          selector:@selector(handleOpenURLWithAppSourceAndAnnotation:)
                                              name:CDVPluginHandleOpenURLWithAppSourceAndAnnotationNotification object:nil];
 
-    // Safety net for the case this plugin cannot otherwise survive: UIKit posts
-    // UIApplicationDidFinishLaunchingNotification once, right after the app delegate returns, and
-    // this plugin is instantiated from CDVViewController's startup-plugin loop. Whether that loop
-    // runs before or after the notification is posted depends on the Cordova and iOS version, so
-    // when it runs after, the observer registered above is too late, the notification never
-    // arrives, and the SDK is left uninitialised for the entire session -- no app events, no
-    // attribution, and an `App ID not found` exception from FBSDKInternalUtility on the first SDK
-    // call. Meta documents no other entry point and no automatic initialisation.
+    // Last-resort fallback. The AppDelegate swizzle at the bottom of this file is the path that
+    // actually initialises the SDK, with the real launchOptions; this only matters for a host whose
+    // delegate class the `AppDelegate (FacebookConnectPlugin)` category never attaches to, where
+    // otherwise the SDK would stay uninitialised for the whole session -- no app events, no
+    // attribution, and `App ID not found` on the first SDK call.
     //
-    // Deferred to the next main-queue turn rather than called inline, because the SDK takes
-    // whichever launch options it is given FIRST and ignores every later call:
-    // ApplicationDelegate.application(_:didFinishLaunchingWithOptions:) opens with
-    // `guard !isAppLaunched, !hasInitializeBeenCalled else { return false }`. Initialising inline
-    // here would therefore win the race against a notification that was still on its way and
-    // permanently discard its real launch options -- which carry the URL or push that opened the
-    // app and are what the SDK uses for attribution and deferred deep links. Yielding first lets
-    // the notification path claim the initialisation with the real options whenever it is coming,
-    // and only falls back to an empty dictionary when it genuinely never arrives.
+    // Deferred to the next main-queue turn rather than called inline because the SDK keeps whichever
+    // launch options it is handed first and ignores every later call. Calling inline would beat both
+    // the swizzle and a still-in-flight UIApplicationDidFinishLaunchingNotification, permanently
+    // replacing their real options with an empty dictionary. Yielding lets either of those claim the
+    // initialisation whenever they are coming; a duplicate call afterwards is a no-op, because
+    // ApplicationDelegate.application(_:didFinishLaunchingWithOptions:) is guarded by
+    // `!isAppLaunched, !hasInitializeBeenCalled`.
     __weak FacebookConnectPlugin *weakSelf = self;
     dispatch_async(dispatch_get_main_queue(), ^{
         [weakSelf initFbSdkWithOpts:nil];
@@ -1074,7 +1069,33 @@ void FBMethodSwizzle(Class c, SEL originalSelector) {
 
 + (void)load
 {
+    // Swizzling the launch method is what makes initialisation deterministic. `+load` runs at image
+    // load, so the hook is in place long before launch, and it is the only place the plugin can see
+    // the real `launchOptions` -- UIKit hands them to the app delegate and nothing downstream keeps
+    // them (cordova-ios's CDVAppDelegate implementation only returns YES). This mirrors what the
+    // Facebook SDK's own integration guide tells app authors to add to their AppDelegate, and what
+    // every report of `App ID not found` in other wrappers has been resolved by doing:
+    // facebook/facebook-ios-sdk#2030, thebergamo/react-native-fbsdk-next#96.
+    FBMethodSwizzle([self class], @selector(application:didFinishLaunchingWithOptions:));
     FBMethodSwizzle([self class], @selector(application:openURL:options:));
+}
+
+- (BOOL)FacebookConnectPlugin_application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+    // Required by FBSDKCoreKit: without this the SDK is never initialised, so no app events or
+    // attribution are sent and the first SDK call throws `App ID not found`. Passing the real
+    // launchOptions matters -- they carry the URL or push that opened the app, which the SDK uses
+    // for attribution and deferred deep links, and it only ever reads the options it is given
+    // first: ApplicationDelegate.application(_:didFinishLaunchingWithOptions:) is guarded by
+    // `!isAppLaunched, !hasInitializeBeenCalled`.
+    [[FBSDKApplicationDelegate sharedInstance] application:application didFinishLaunchingWithOptions:launchOptions];
+
+    // Call existing method
+    return [self FacebookConnectPlugin_application:application didFinishLaunchingWithOptions:launchOptions];
+}
+
+- (BOOL)noop_application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
+{
+    return YES;
 }
 
 - (BOOL)FacebookConnectPlugin_application:(UIApplication *)application openURL:(NSURL *)url options:(NSDictionary<NSString *,id> *)options {
