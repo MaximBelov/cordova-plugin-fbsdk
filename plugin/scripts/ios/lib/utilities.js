@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const Utilities = {};
 
 Utilities.getPreferenceValueFromConfig = function (config, name) {
@@ -32,8 +33,27 @@ Utilities.getPreferenceValue = function (name) {
 Utilities.getPlistPath = function (context) {
   const common = context.requireCordovaModule('cordova-common');
   const util = context.requireCordovaModule('cordova-lib/src/cordova/util');
-  const projectName = new common.ConfigParser(util.projectConfig(util.isCordova())).name();
-  return './platforms/ios/' + projectName + '/' + projectName + '-Info.plist'
+  const projectRoot = util.isCordova();
+  const platformPath = path.join(projectRoot, 'platforms', 'ios');
+
+  // Since cordova-ios 8.0.0 the Xcode project and target are always named "App", regardless of
+  // <name> in config.xml, so the <name>-derived path below no longer exists. Ask the installed
+  // platform where its project lives rather than guessing: platforms/ios/cordova/Api.js is the
+  // same API the Cordova CLI drives it through, and locations.xcodeCordovaProj is what
+  // cordova-ios itself uses when it writes that plist. That keeps this correct if the directory
+  // is ever renamed again.
+  try {
+    const PlatformApi = require(path.join(platformPath, 'cordova', 'Api.js'));
+    const plistPath = path.join(new PlatformApi('ios', platformPath).locations.xcodeCordovaProj, 'App-Info.plist');
+    if (fs.existsSync(plistPath)) {
+      return plistPath
+    }
+  } catch (e) {
+    // Platform not installed yet, or older than the Api.js layout - fall through.
+  }
+
+  const projectName = new common.ConfigParser(util.projectConfig(projectRoot)).name();
+  return path.join(platformPath, projectName, projectName + '-Info.plist')
 }
 
 module.exports = Utilities;
