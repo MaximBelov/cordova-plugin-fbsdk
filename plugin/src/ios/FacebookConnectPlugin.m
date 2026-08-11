@@ -317,6 +317,17 @@
         double value = [[command.arguments objectAtIndex:0] doubleValue];
         NSString *currency = [command.arguments objectAtIndex:1];
 
+        // Android rejects anything outside ISO 4217 -- Currency.getInstance throws --
+        // while iOS handed the raw string to the SDK and always reported success, so a
+        // typo produced an unattributable purchase event and no way to notice. Validate
+        // here so both platforms fail the same call. Case-sensitive, as on Android.
+        if (![[NSLocale ISOCurrencyCodes] containsObject:currency]) {
+            CDVPluginResult *res = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
+                                                    messageAsString:[NSString stringWithFormat:@"Invalid currency code: %@", currency]];
+            [self.commandDelegate sendPluginResult:res callbackId:command.callbackId];
+            return;
+        }
+
         if ([command.arguments count] == 2 ) {
             [FBSDKAppEvents.shared logPurchase:value currency:currency];
         } else if ([command.arguments count] >= 3) {
