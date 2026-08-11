@@ -5,19 +5,79 @@ on:
     branches:
       - master
       - develop
+  workflow_dispatch: # so a release can be re-cut when nothing in this repo changed
+
+permissions:
+  contents: write # tag the release once the publish succeeds
+  id-token: write # npm Trusted Publishers (OIDC) and build provenance
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
         with:
-          node-version: 20
+          fetch-depth: 0 # tags, so the release step can tell what already exists
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
           registry-url: 'https://registry.npmjs.org'
-      - run: cp -r {README.md,CHANGELOG.md,docs} plugin
+
+      - name: Read the version and check whether it is new
+        id: version
+        run: |
+          VERSION=$(node -p "require('./plugin/package.json').version")
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # Every push to a release branch runs this job, but only a release commit changes
+          # the version. Without this check the rest fail on npm's 403 for an existing
+          # version, which reads as a broken pipeline rather than as nothing to do.
+          if npm view "cordova-plugin-fbsdk@$VERSION" version > /dev/null 2>&1; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::cordova-plugin-fbsdk@$VERSION is already published; nothing to do."
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Assemble the package
+        if: steps.version.outputs.new == 'true'
+        run: cp -r {README.md,CHANGELOG.md,docs} plugin
+
+      # Auth is the OIDC token above, exchanged for a short-lived npm token. This requires
+      # a Trusted Publisher configured for cordova-plugin-fbsdk on npmjs.com, pointing at
+      # this repository and this workflow file.
       - name: Publish
+        if: steps.version.outputs.new == 'true'
         working-directory: ./plugin
-        run: npm publish --access public --tag ${{github.ref_name == 'master' && 'latest' || 'next' }}
+        run: npm publish --access public --tag ${{ github.ref_name == 'master' && 'latest' || 'next' }}
+
+      # The changelog has always linked to releases/tag/vX.Y.Z and every version through
+      # 4.1.3 has a tag, so this automates what was being done by hand -- and only after the
+      # publish succeeded, so a tag never points at a version that is not on npm.
+      - name: Tag and publish release notes
+        if: steps.version.outputs.new == 'true' && github.ref_name == 'master'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
+            echo "::notice::Tag v$VERSION already exists; leaving it alone."
+            exit 0
+          fi
+
+          # The section for this version, from its anchor up to the next one.
+          awk -v v="$VERSION" '
+            $0 == "<a name=\"" v "\"></a>" { found = 1; next }
+            found && /^<a name="/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+
+          if [ ! -s release-notes.md ]; then
+            echo "No changelog section for $VERSION." > release-notes.md
+          fi
+
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes-file release-notes.md \
+            --target "$GITHUB_SHA"

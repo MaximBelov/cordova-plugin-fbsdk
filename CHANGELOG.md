@@ -1,3 +1,39 @@
+<a name="5.0.0"></a>
+
+# [5.0.0](https://github.com/MaximBelov/cordova-plugin-fbsdk/releases/tag/v5.0.0) (2026-08-11)
+
+This release fixes long-standing defects in the native bridge. There is no new API, but several of the fixes change what an existing app observes, so it is a major rather than a 4.1.x.
+
+## Breaking Changes
+
+* `getLoginStatus`, `logPurchase` and `api` now deliver failures to your **error** callback. When the optional leading argument was omitted they shifted the callbacks with `s = params; f = s;` — a swap without a temporary — so `f` held the success callback and every failure was reported as a success. Code that inspected errors inside its success handler will stop seeing them, and an app that passed no error callback at all will no longer be told about failures
+* Android: the plugin no longer writes `android-minSdkVersion` 15 into your `config.xml`. A project that does not set its own now gets the platform default — 24 on cordova-android 15 — which raises the minimum Android version of the built app. Set `<preference name="android-minSdkVersion" value="..." />` in your own `config.xml` to choose it. The previous value made the build fail outright on current cordova-android, because `androidx.appcompat` requires 21
+* iOS: `logPurchase` rejects currency codes outside ISO 4217 instead of reporting success. Android has always thrown for them, so the same JavaScript behaved differently per platform; Facebook cannot attribute a purchase in a currency it does not recognise
+* iOS: the Facebook SDK's default Graph API version moves from v17.0 to v21.0, which comes with SDK 18.1.0. An app that does not pin a Graph API version will get whatever v21.0 returns — v17.0 had already expired, and Meta silently reroutes expired versions rather than failing them
+* iOS: the SDK is initialised from a swizzled `application:didFinishLaunchingWithOptions:` rather than from `UIApplicationDidFinishLaunchingNotification`, which the plugin was registered too late to receive. If your app or another plugin swizzles the same method, check that they compose
+
+## Bug Fixes
+
+* iOS: resolve the `*-Info.plist` path from the installed platform, so the plugin installs on cordova-ios 8+, where the generated project directory is always `App` (closes [#19](https://github.com/MaximBelov/cordova-plugin-fbsdk/issues/19))
+* iOS: the SDK is initialised on every launch. Previously it could be left uninitialised for the whole session, crashing with `App ID not found` on the first SDK call, or silently sending no app events at all (closes [#21](https://github.com/MaximBelov/cordova-plugin-fbsdk/issues/21))
+* iOS: `setDataProcessingOptions` passes `country` and `state` to the SDK as the `int32_t` it expects, instead of an `NSString *` pointer truncated to an int. Limited Data Use has never sent meaningful values on iOS
+* iOS: `FBSDKLoginTracking` is held by value rather than as a pointer to the enum, removing 13 compiler warnings and a dead "is it unset" check in `logout` that could not distinguish unset from `Enabled`
+
+## Refactor
+
+* Updated the Facebook SDK to 18.3.0 for Android
+* Updated the Facebook SDK to 18.1.0 for iOS
+* The browser platform stays on the Facebook JavaScript SDK v22.0
+
+## Chore
+
+* The suite in `plugin/tests` runs on every pull request, on an iOS simulator and an Android emulator, through [cordova-paramedic](https://github.com/apache/cordova-paramedic) — `npm run test:ios` and `npm run test:android` run the same thing locally
+* `plugin/tests` is installable again — it had no `package.json`, which current Cordova requires, so the suite could not be added to a project at all
+* Publishing goes through npm Trusted Publishers on Node 24, with no npm token stored in the repository, and tags the release once it succeeds
+* Added a Prettier config and reformatted the plugin's JavaScript sources, with a format check on pull requests
+* Documented at the top of the README why this fork exists, and pointed `homepage`, `bugs` and `<issue>` at this repository
+* The `demo/` app moved to cordova-ios 8.1.1, cordova-android 15.1.0 and `@awesome-cordova-plugins` 9.5.0, so reproducing a bug against it uses the platforms the reports come from
+
 <a name="4.1.3"></a>
 
 ## Refactor
