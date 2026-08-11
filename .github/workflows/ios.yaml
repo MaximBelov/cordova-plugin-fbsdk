@@ -1,0 +1,79 @@
+# Runs the suite in plugin/tests on an iOS simulator, through cordova-paramedic: it
+# builds a throwaway Cordova app around the plugin, deploys it, collects the Jasmine
+# results and exits non-zero on any failure.
+name: iOS Testsuite
+
+on:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - 'demo/**'
+  push:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - 'demo/**'
+
+permissions:
+  contents: read
+
+# macOS runners are the expensive part; don't leave superseded runs going.
+concurrency:
+  group: ios-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: iOS ${{ matrix.ios }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            ios: 18.x
+            xcode: 16.x
+          - os: macos-26
+            ios: 26.x
+            xcode: 26.x
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ matrix.xcode }}
+
+      # ios-deploy has to be global: "cordova requirements ios" needs it on PATH, and the
+      # npm package declares os: ["darwin"], so as a devDependency it would fail npm ci on
+      # the Linux runner the Android suite uses.
+      - run: npm i -g ios-deploy@1.12.2
+
+      # cordova and cordova-paramedic are pinned devDependencies, so the toolchain is the
+      # same here as it is locally and the lockfile is the only place a version lives.
+      #
+      # paramedic is pinned to a fork, not apache/cordova-paramedic, for two fixes this
+      # plugin needs -- submitted upstream as apache/cordova-paramedic#314:
+      #  - --plugin appended its --variable args to the plugin path instead of passing
+      #    them as separate argv entries, so the CLI read the whole string as one plugin
+      #    spec. This plugin's APP_ID, APP_NAME and CLIENT_TOKEN are mandatory, so
+      #    installation could not succeed at all.
+      #  - simulator lookup compared the minor version cordova reports (18.3) with the
+      #    patch version xctrace reports (18.3.1) for equality, finding nothing whenever
+      #    the runtime carries a patch component.
+      - run: npm ci
+
+      # The plugin variables live in the npm script, so the same command runs locally.
+      # No --target is passed: any iPhone runs this suite identically, and pinning a device
+      # name only breaks when GitHub rotates what its images ship.
+      - run: npm run test:ios
