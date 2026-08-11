@@ -2,8 +2,21 @@
 
 > Use Facebook SDK in Cordova projects
 
+## Why this fork exists
+
+Forked from [cordova-plugin-facebook-connect](https://github.com/cordova-plugin-facebook-connect/cordova-plugin-facebook-connect), which has published no release since `3.2.0` in April 2022. Its `master` still pins Facebook SDK 11.x, seven major versions behind, and Apple and Google requirements have moved several times since. This fork exists to keep a maintained plugin available for projects already depending on that integration, rather than to change its API — it stays a drop-in replacement.
+
+Published as [cordova-plugin-fbsdk](https://www.npmjs.com/package/cordova-plugin-fbsdk).
+
+Changes from upstream:
+
+- Tracks current Facebook SDK releases. Upstream is on Android 11.3.0 / iOS 11.1.0 / browser JS SDK v11.0; this fork is on Android 18.3.0 / iOS 18.1.0 / v22.0.
+- Follows current Cordova platform releases — the build configuration and project layout that recent cordova-android and cordova-ios versions generate, which is where most of the breakage in a plugin this old comes from.
+- Bug reports get triaged and fixed here. Upstream has 43 open issues and no commits since June 2024.
+
 ## Table of contents
 
+- [Why this fork exists](#why-this-fork-exists)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Demo](#sample-repo)
