@@ -33,8 +33,6 @@
 - (void)pluginInitialize {
     NSLog(@"Starting Facebook Connect plugin");
 
-    [self initFbSdkWithOpts:nil];
-
     // Add notification listener for tracking app activity with FB Events
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(applicationDidFinishLaunching:)
@@ -47,6 +45,29 @@
     [[NSNotificationCenter defaultCenter] addObserver:self
                                          selector:@selector(handleOpenURLWithAppSourceAndAnnotation:)
                                              name:CDVPluginHandleOpenURLWithAppSourceAndAnnotationNotification object:nil];
+
+    // Safety net for the case this plugin cannot otherwise survive: UIKit posts
+    // UIApplicationDidFinishLaunchingNotification once, right after the app delegate returns, and
+    // this plugin is instantiated from CDVViewController's startup-plugin loop. Whether that loop
+    // runs before or after the notification is posted depends on the Cordova and iOS version, so
+    // when it runs after, the observer registered above is too late, the notification never
+    // arrives, and the SDK is left uninitialised for the entire session -- no app events, no
+    // attribution, and an `App ID not found` exception from FBSDKInternalUtility on the first SDK
+    // call. Meta documents no other entry point and no automatic initialisation.
+    //
+    // Deferred to the next main-queue turn rather than called inline, because the SDK takes
+    // whichever launch options it is given FIRST and ignores every later call:
+    // ApplicationDelegate.application(_:didFinishLaunchingWithOptions:) opens with
+    // `guard !isAppLaunched, !hasInitializeBeenCalled else { return false }`. Initialising inline
+    // here would therefore win the race against a notification that was still on its way and
+    // permanently discard its real launch options -- which carry the URL or push that opened the
+    // app and are what the SDK uses for attribution and deferred deep links. Yielding first lets
+    // the notification path claim the initialisation with the real options whenever it is coming,
+    // and only falls back to an empty dictionary when it genuinely never arrives.
+    __weak FacebookConnectPlugin *weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [weakSelf initFbSdkWithOpts:nil];
+    });
 }
 
 - (void) applicationDidFinishLaunching:(NSNotification *) notification {
@@ -65,7 +86,7 @@
     }
 
     [[FBSDKApplicationDelegate sharedInstance] application:[UIApplication sharedApplication] didFinishLaunchingWithOptions:launchOptions];
-    
+
     [FBSDKProfile enableUpdatesOnAccessTokenChange:YES];
 }
 
@@ -90,7 +111,7 @@
 
 - (void)getApplicationId:(CDVInvokedUrlCommand *)command {
     NSString *appID = FBSDKSettings.sharedSettings.appID;
-    CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@""];
+    CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:appID];
     [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
 }
 
