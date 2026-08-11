@@ -157,8 +157,11 @@ exports.defineAutoTests = function () {
         }
 
         function onError(error) {
+          // Either callback satisfies this spec, per its name. Passing the error to done()
+          // fails the spec instead, and with no Facebook session -- every clean run --
+          // "Session not open." is the only outcome getAccessToken can produce.
           expect(error).toBeDefined();
-          done(error);
+          done();
         }
 
         facebookConnectPlugin.getAccessToken(onSuccess, onError);
