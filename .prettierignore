@@ -1,0 +1,8 @@
+# The demo is a standalone Cordova app with its own dependencies and lockfile;
+# formatting it here would bury the plugin's own diff.
+demo/
+
+# Docs are prose. Reflowing them produces a large diff with no reviewable
+# content, and re-wrapped paragraphs make future doc changes harder to read.
+# Left deliberately unformatted rather than ignored by accident.
+*.md
