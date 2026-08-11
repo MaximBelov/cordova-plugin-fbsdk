@@ -1,3 +1,26 @@
+<a name="4.1.4"></a>
+
+# [4.1.4](https://github.com/MaximBelov/cordova-plugin-fbsdk/releases/tag/v4.1.4) (2026-08-11)
+
+## Bug Fixes
+* iOS: resolve the `*-Info.plist` path from the installed platform, so the plugin installs on cordova-ios 8+, where the generated project directory is always `App` (closes [#19](https://github.com/MaximBelov/cordova-plugin-fbsdk/issues/19))
+* iOS: initialise the Facebook SDK from a swizzled `application:didFinishLaunchingWithOptions:` instead of a launch notification the plugin is registered too late to receive, which left the SDK uninitialised for the whole session — crashing with `App ID not found` on the first SDK call, or silently sending no app events at all (closes [#21](https://github.com/MaximBelov/cordova-plugin-fbsdk/issues/21))
+* `getLoginStatus`, `logPurchase` and `api` no longer replace your error callback with your success callback when the optional leading argument is omitted, which reported every failure as a success
+* iOS: `setDataProcessingOptions` passes `country` and `state` to the SDK as the `int32_t` it expects, instead of an `NSString *` pointer truncated to an int — Limited Data Use never sent meaningful values on iOS
+* iOS: `FBSDKLoginTracking` is held by value rather than as a pointer to the enum, removing 13 compiler warnings and a dead "is it unset" check in `logout` that could not distinguish unset from `Enabled`
+* iOS: `logPurchase` rejects currency codes outside ISO 4217, as Android already did — such a purchase event cannot be attributed by Facebook, and previously succeeded silently. **Behaviour change:** these calls now invoke the error callback
+
+## Refactor
+* Updated the Facebook SDK to 18.3.0 for Android
+* Updated the Facebook SDK to 18.1.0 for iOS, which moves the SDK's default Graph API version off the expired v17.0 and onto v21.0
+* The browser platform stays on the Facebook JavaScript SDK v22.0
+
+## Chore
+* Added a Prettier config and reformatted the plugin's JavaScript sources, with a format check on pull requests
+* Documented at the top of the README why this fork exists, and pointed `homepage`, `bugs` and `<issue>` at this repository
+* The release workflow now publishes through npm Trusted Publishers on Node 24, with no npm token stored in the repository
+* `plugin/tests` is installable again — it had no `package.json`, which current Cordova requires, so the suite could not be added to a project at all. It now runs green: 23 specs, 0 failures
+
 <a name="4.1.3"></a>
 
 ## Refactor
