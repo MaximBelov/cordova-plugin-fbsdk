@@ -5,19 +5,25 @@ on:
     branches:
       - master
       - develop
+  workflow_dispatch: # so a release can be re-cut when nothing in this repo changed
+
+permissions:
+  contents: read
+  id-token: write # npm Trusted Publishers (OIDC) and build provenance
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           registry-url: 'https://registry.npmjs.org'
       - run: cp -r {README.md,CHANGELOG.md,docs} plugin
+      # Auth is the OIDC token above, exchanged for a short-lived npm token. This
+      # requires a Trusted Publisher configured for cordova-plugin-fbsdk on
+      # npmjs.com, pointing at this repository and this workflow file.
       - name: Publish
         working-directory: ./plugin
-        run: npm publish --access public --tag ${{github.ref_name == 'master' && 'latest' || 'next' }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --tag ${{ github.ref_name == 'master' && 'latest' || 'next' }}
