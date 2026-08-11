@@ -25,8 +25,8 @@
     <preference name="FACEBOOK_AUTO_LOG_APP_EVENTS" default="true" />
     <preference name="FACEBOOK_HYBRID_APP_EVENTS" default="false" />
     <preference name="FACEBOOK_ADVERTISER_ID_COLLECTION" default="true" />
-    <preference name="FACEBOOK_ANDROID_SDK_VERSION" default="18.0.2"/>
-    <preference name="FACEBOOK_IOS_SDK_VERSION" default="18.0.0"/>
+    <preference name="FACEBOOK_ANDROID_SDK_VERSION" default="18.3.0"/>
+    <preference name="FACEBOOK_IOS_SDK_VERSION" default="18.1.0"/>
     <preference name="FACEBOOK_BROWSER_SDK_VERSION" default="v22.0" />
 
     <engines>
