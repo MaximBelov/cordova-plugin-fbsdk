@@ -54,6 +54,11 @@ jobs:
         with:
           xcode-version: ${{ matrix.xcode }}
 
+      # ios-deploy has to be global: "cordova requirements ios" needs it on PATH, and the
+      # npm package declares os: ["darwin"], so as a devDependency it would fail npm ci on
+      # the Linux runner the Android suite uses.
+      - run: npm i -g ios-deploy@1.12.2
+
       # cordova and cordova-paramedic are pinned devDependencies, so the toolchain is the
       # same here as it is locally and the lockfile is the only place a version lives.
       #

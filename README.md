@@ -65,9 +65,11 @@ If you are looking to test the plugin, would like to reproduce a bug or build is
 
 ```bash
 npm ci
-npm run test:ios      # needs Xcode and an iPhone simulator
-npm run test:android  # needs the Android SDK and an emulator or device
+npm run test:ios      # needs Xcode, an iPhone simulator, and ios-deploy on PATH
+npm run test:android  # needs the Android SDK and a running emulator or a device
 ```
+
+`ios-deploy` comes from `brew install ios-deploy` or `npm i -g ios-deploy`; `cordova requirements ios` fails without it. It is not a devDependency here because the npm package is macOS-only and would break installing on Linux.
 
 Both are run on every pull request by the [iOS](.github/workflows/ios.yaml) and [Android](.github/workflows/android.yaml) workflows, so the commands above are the same ones CI uses.
 
