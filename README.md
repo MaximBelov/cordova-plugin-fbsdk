@@ -20,6 +20,7 @@ Changes from upstream:
 - [Installation](#installation)
 - [Usage](#usage)
 - [Demo](#sample-repo)
+- [Running the tests](#running-the-tests)
 - [Compatibility](#compatibility)
 - [Facebook SDK](#facebook-sdk)
 - [API](#api)
@@ -57,6 +58,20 @@ The Facebook plugin for [Apache Cordova](http://cordova.apache.org/) allows you 
 ## Demo
 
 If you are looking to test the plugin, would like to reproduce a bug or build issues, there is a demo project for such purpose: [demo](demo).
+
+## Running the tests
+
+[`plugin/tests`](plugin/tests) holds a Jasmine suite that exercises the plugin through its real native bridge. It runs on a simulator or emulator via [cordova-paramedic](https://github.com/apache/cordova-paramedic), which builds a throwaway Cordova app around the plugin, deploys it, collects the results and exits non-zero on any failure:
+
+```bash
+npm ci
+npm run test:ios      # needs Xcode and an iPhone simulator
+npm run test:android  # needs the Android SDK and an emulator or device
+```
+
+Both are run on every pull request by the [iOS](.github/workflows/ios.yaml) and [Android](.github/workflows/android.yaml) workflows, so the commands above are the same ones CI uses.
+
+The specs deliberately need no Facebook login: they cover the API surface, the app-events calls, and the error paths that a session-less app hits. Anything that needs a real sign-in lives in the suite's manual section, which the harness exposes under "Manual Tests" when you open the app it builds.
 
 ## Compatibility
 
