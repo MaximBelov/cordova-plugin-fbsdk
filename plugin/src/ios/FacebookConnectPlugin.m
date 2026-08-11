@@ -20,6 +20,7 @@
 @property (nonatomic, assign) FBSDKLoginTracking *loginTracking;
 @property (strong, nonatomic) NSString* gameRequestDialogCallbackId;
 @property (nonatomic, assign) BOOL applicationWasActivated;
+@property (nonatomic, assign) BOOL sdkInit;
 
 - (NSDictionary *)loginResponseObject;
 - (NSDictionary *)limitedLoginResponseObject;
@@ -44,17 +45,43 @@
     [[NSNotificationCenter defaultCenter] addObserver:self
                                          selector:@selector(handleOpenURLWithAppSourceAndAnnotation:)
                                              name:CDVPluginHandleOpenURLWithAppSourceAndAnnotationNotification object:nil];
+
+    // Last-resort fallback. The AppDelegate swizzle at the bottom of this file is the path that
+    // actually initialises the SDK, with the real launchOptions; this only matters for a host whose
+    // delegate class the `AppDelegate (FacebookConnectPlugin)` category never attaches to, where
+    // otherwise the SDK would stay uninitialised for the whole session -- no app events, no
+    // attribution, and `App ID not found` on the first SDK call.
+    //
+    // Deferred to the next main-queue turn rather than called inline because the SDK keeps whichever
+    // launch options it is handed first and ignores every later call. Calling inline would beat both
+    // the swizzle and a still-in-flight UIApplicationDidFinishLaunchingNotification, permanently
+    // replacing their real options with an empty dictionary. Yielding lets either of those claim the
+    // initialisation whenever they are coming; a duplicate call afterwards is a no-op, because
+    // ApplicationDelegate.application(_:didFinishLaunchingWithOptions:) is guarded by
+    // `!isAppLaunched, !hasInitializeBeenCalled`.
+    __weak FacebookConnectPlugin *weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [weakSelf initFbSdkWithOpts:nil];
+    });
 }
 
 - (void) applicationDidFinishLaunching:(NSNotification *) notification {
-    NSDictionary* launchOptions = notification.userInfo;
+    [self initFbSdkWithOpts:notification.userInfo];
+}
+
+- (void) initFbSdkWithOpts:(NSDictionary *) launchOptions {
+    if (self.sdkInit) {
+        return;
+    }
+    self.sdkInit = YES;
+
     if (launchOptions == nil) {
         //launchOptions is nil when not start because of notification or url open
         launchOptions = [NSDictionary dictionary];
     }
 
     [[FBSDKApplicationDelegate sharedInstance] application:[UIApplication sharedApplication] didFinishLaunchingWithOptions:launchOptions];
-    
+
     [FBSDKProfile enableUpdatesOnAccessTokenChange:YES];
 }
 
@@ -1042,7 +1069,33 @@ void FBMethodSwizzle(Class c, SEL originalSelector) {
 
 + (void)load
 {
+    // Swizzling the launch method is what makes initialisation deterministic. `+load` runs at image
+    // load, so the hook is in place long before launch, and it is the only place the plugin can see
+    // the real `launchOptions` -- UIKit hands them to the app delegate and nothing downstream keeps
+    // them (cordova-ios's CDVAppDelegate implementation only returns YES). This mirrors what the
+    // Facebook SDK's own integration guide tells app authors to add to their AppDelegate, and what
+    // every report of `App ID not found` in other wrappers has been resolved by doing:
+    // facebook/facebook-ios-sdk#2030, thebergamo/react-native-fbsdk-next#96.
+    FBMethodSwizzle([self class], @selector(application:didFinishLaunchingWithOptions:));
     FBMethodSwizzle([self class], @selector(application:openURL:options:));
+}
+
+- (BOOL)FacebookConnectPlugin_application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+    // Required by FBSDKCoreKit: without this the SDK is never initialised, so no app events or
+    // attribution are sent and the first SDK call throws `App ID not found`. Passing the real
+    // launchOptions matters -- they carry the URL or push that opened the app, which the SDK uses
+    // for attribution and deferred deep links, and it only ever reads the options it is given
+    // first: ApplicationDelegate.application(_:didFinishLaunchingWithOptions:) is guarded by
+    // `!isAppLaunched, !hasInitializeBeenCalled`.
+    [[FBSDKApplicationDelegate sharedInstance] application:application didFinishLaunchingWithOptions:launchOptions];
+
+    // Call existing method
+    return [self FacebookConnectPlugin_application:application didFinishLaunchingWithOptions:launchOptions];
+}
+
+- (BOOL)noop_application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
+{
+    return YES;
 }
 
 - (BOOL)FacebookConnectPlugin_application:(UIApplication *)application openURL:(NSURL *)url options:(NSDictionary<NSString *,id> *)options {
