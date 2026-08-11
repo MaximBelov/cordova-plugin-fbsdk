@@ -32,3 +32,7 @@ proguard/
 *.iml
 /nbproject/private/
 nbproject
+
+# Node
+
+node_modules/

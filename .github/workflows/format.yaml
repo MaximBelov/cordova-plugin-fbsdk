@@ -1,0 +1,21 @@
+# Without this the formatting introduced alongside it drifts back immediately: a
+# contributor's editor reformats a file in passing, the diff balloons, and the real
+# change gets buried. That is exactly what happened in #20.
+name: Format
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  prettier:
+    name: Prettier
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run format:check
