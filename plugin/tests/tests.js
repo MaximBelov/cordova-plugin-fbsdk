@@ -13,6 +13,11 @@
 exports.defineAutoTests = function () {
   'use strict';
 
+  // The first call into FBSDKAppEvents blocks while the SDK fetches its remote
+  // configuration, which on a cold start is well past Jasmine's 5s default. Whichever
+  // AppEvents spec runs first pays that cost, so they all get the longer budget.
+  var APP_EVENTS_TIMEOUT = 30000;
+
   describe('facebookConnectPlugin', function () {
     it('should be defined', function () {
       expect(facebookConnectPlugin).toBeDefined();
@@ -71,19 +76,23 @@ exports.defineAutoTests = function () {
         expect(typeof facebookConnectPlugin.logEvent).toEqual('function');
       });
 
-      it('should succeed when called with valid arguments', function (done) {
-        function onSuccess(data) {
-          expect(data).toBeDefined();
-          done();
-        }
+      it(
+        'should succeed when called with valid arguments',
+        function (done) {
+          function onSuccess(data) {
+            expect(data).toBeDefined();
+            done();
+          }
 
-        function onError(error) {
-          expect(true).toEqual(false); // to make it fail
-          done();
-        }
+          function onError(error) {
+            expect(true).toEqual(false); // to make it fail
+            done();
+          }
 
-        facebookConnectPlugin.logEvent('test-event', {}, 0, onSuccess, onError);
-      });
+          facebookConnectPlugin.logEvent('test-event', {}, 0, onSuccess, onError);
+        },
+        APP_EVENTS_TIMEOUT,
+      );
     });
 
     describe('logPurchase', function () {
@@ -95,33 +104,41 @@ exports.defineAutoTests = function () {
         expect(typeof facebookConnectPlugin.logPurchase).toEqual('function');
       });
 
-      it('should succeed when called with valid currency code', function (done) {
-        function onSuccess(data) {
-          expect(data).toBeDefined();
-          done();
-        }
+      it(
+        'should succeed when called with valid currency code',
+        function (done) {
+          function onSuccess(data) {
+            expect(data).toBeDefined();
+            done();
+          }
 
-        function onError(error) {
-          expect(true).toEqual(false); // to make it fail
-          done();
-        }
+          function onError(error) {
+            expect(true).toEqual(false); // to make it fail
+            done();
+          }
 
-        facebookConnectPlugin.logPurchase(1, 'ARS', onSuccess, onError);
-      });
+          facebookConnectPlugin.logPurchase(1, 'ARS', onSuccess, onError);
+        },
+        APP_EVENTS_TIMEOUT,
+      );
 
-      it('should fail when called with invalid currency code', function (done) {
-        function onSuccess(data) {
-          expect(true).toEqual(false); // to make it fail
-          done();
-        }
+      it(
+        'should fail when called with invalid currency code',
+        function (done) {
+          function onSuccess(data) {
+            expect(true).toEqual(false); // to make it fail
+            done();
+          }
 
-        function onError(error) {
-          expect(error).toBeDefined();
-          done();
-        }
+          function onError(error) {
+            expect(error).toBeDefined();
+            done();
+          }
 
-        facebookConnectPlugin.logPurchase(1, 'BITCOINS', onSuccess, onError);
-      });
+          facebookConnectPlugin.logPurchase(1, 'BITCOINS', onSuccess, onError);
+        },
+        APP_EVENTS_TIMEOUT,
+      );
     });
 
     describe('getAccessToken', function () {
