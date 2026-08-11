@@ -61,8 +61,9 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       # cordova and cordova-paramedic are pinned devDependencies. paramedic is pinned to a
-      # fork rather than apache/cordova-paramedic; see ios.yaml for the two fixes, both
-      # submitted upstream as apache/cordova-paramedic#314.
+      # fork rather than apache/cordova-paramedic; see ios.yaml for the two fixes and for why
+      # the pin cannot be dropped until both apache/cordova-paramedic#314 and
+      # apache/cordova-paramedic#315 have landed.
       - run: npm ci
 
       # Create the AVD first so the run below starts against a warm one, as the emulator
