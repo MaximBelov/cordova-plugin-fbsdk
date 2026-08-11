@@ -1,6 +1,6 @@
 {
   "name": "cordova-plugin-fbsdk-tests",
-  "version": "4.1.4",
+  "version": "4.1.3",
   "description": "Facebook Connect Tests",
   "cordova": {
     "id": "cordova-plugin-fbsdk-tests",
