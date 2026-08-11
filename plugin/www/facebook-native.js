@@ -26,8 +26,10 @@ exports.setApplicationName = function (appName, s, f) {
 
 exports.getLoginStatus = function (force, s, f) {
   if (typeof force === 'function') {
-    s = force;
+    // Shift, error callback first: assigning s before f would leave both pointing at
+    // the success callback and silently discard the error one.
     f = s;
+    s = force;
     force = false;
   }
   exec(s, f, 'FacebookConnectPlugin', 'getLoginStatus', [force]);
@@ -104,8 +106,8 @@ exports.logEvent = function (name, params, valueToSum, s, f) {
 
 exports.logPurchase = function (value, currency, params, s, f) {
   if (typeof params === 'function') {
-    s = params;
     f = s;
+    s = params;
     params = undefined;
   }
   if (!params) {
@@ -130,8 +132,8 @@ exports.getCurrentProfile = function (s, f) {
 exports.api = function (graphPath, permissions, httpMethod, s, f) {
   permissions = permissions || [];
   if (typeof httpMethod === 'function') {
-    s = httpMethod;
     f = s;
+    s = httpMethod;
     httpMethod = undefined;
   }
   if (httpMethod) {

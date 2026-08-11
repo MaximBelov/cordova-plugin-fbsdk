@@ -17,7 +17,7 @@
 
 @property (strong, nonatomic) NSString* dialogCallbackId;
 @property (strong, nonatomic) FBSDKLoginManager *loginManager;
-@property (nonatomic, assign) FBSDKLoginTracking *loginTracking;
+@property (nonatomic, assign) FBSDKLoginTracking loginTracking;
 @property (strong, nonatomic) NSString* gameRequestDialogCallbackId;
 @property (nonatomic, assign) BOOL applicationWasActivated;
 @property (nonatomic, assign) BOOL sdkInit;
@@ -226,8 +226,11 @@
     if ([command.arguments count] == 1) {
         [FBSDKSettings.sharedSettings setDataProcessingOptions:options];
     } else {
-        NSString *country = [command.arguments objectAtIndex:1];
-        NSString *state = [command.arguments objectAtIndex:2];
+        // The SDK takes these as int32_t (e.g. country 1, state 1000 for California).
+        // They were declared NSString *, so what reached the SDK was the pointer address
+        // truncated to an int -- a different, meaningless region on every launch.
+        int32_t country = [[command.arguments objectAtIndex:1] intValue];
+        int32_t state = [[command.arguments objectAtIndex:2] intValue];
         [FBSDKSettings.sharedSettings setDataProcessingOptions:options country:country state:state];
     }
     [self returnGenericSuccess:command.callbackId];
@@ -313,7 +316,18 @@
     [self.commandDelegate runInBackground:^{
         double value = [[command.arguments objectAtIndex:0] doubleValue];
         NSString *currency = [command.arguments objectAtIndex:1];
-        
+
+        // Android rejects anything outside ISO 4217 -- Currency.getInstance throws --
+        // while iOS handed the raw string to the SDK and always reported success, so a
+        // typo produced an unattributable purchase event and no way to notice. Validate
+        // here so both platforms fail the same call. Case-sensitive, as on Android.
+        if (![[NSLocale ISOCurrencyCodes] containsObject:currency]) {
+            CDVPluginResult *res = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
+                                                    messageAsString:[NSString stringWithFormat:@"Invalid currency code: %@", currency]];
+            [self.commandDelegate sendPluginResult:res callbackId:command.callbackId];
+            return;
+        }
+
         if ([command.arguments count] == 2 ) {
             [FBSDKAppEvents.shared logPurchase:value currency:currency];
         } else if ([command.arguments count] >= 3) {
@@ -507,9 +521,6 @@
         // Close the session and clear the cache
         if (self.loginManager == nil) {
             self.loginManager = [[FBSDKLoginManager alloc] init];
-        }
-        if (self.loginTracking == nil) {
-            self.loginTracking = FBSDKLoginTrackingEnabled;
         }
 
         [self.loginManager logOut];
@@ -824,7 +835,7 @@
     response[@"errorCode"] = errorCode ?: @"-2";
     response[@"errorMessage"] = errorMessage ?: @"There was a problem logging you in.";
     CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
-                                     messageAsString:response];
+                                     messageAsDictionary:response];
     [self.commandDelegate sendPluginResult:pluginResult callbackId:callbackId];
 }
 
