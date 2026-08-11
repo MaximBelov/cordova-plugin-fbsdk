@@ -12,7 +12,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/MaximBelov/cordova-plugin-fbsdk"
+    "url": "git+https://github.com/MaximBelov/cordova-plugin-fbsdk.git"
+  },
+  "homepage": "https://github.com/MaximBelov/cordova-plugin-fbsdk#readme",
+  "bugs": {
+    "url": "https://github.com/MaximBelov/cordova-plugin-fbsdk/issues"
   },
   "keywords": [
     "cordova",
