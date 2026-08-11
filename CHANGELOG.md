@@ -8,6 +8,7 @@
 * `getLoginStatus`, `logPurchase` and `api` no longer replace your error callback with your success callback when the optional leading argument is omitted, which reported every failure as a success
 * iOS: `setDataProcessingOptions` passes `country` and `state` to the SDK as the `int32_t` it expects, instead of an `NSString *` pointer truncated to an int — Limited Data Use never sent meaningful values on iOS
 * iOS: `FBSDKLoginTracking` is held by value rather than as a pointer to the enum, removing 13 compiler warnings and a dead "is it unset" check in `logout` that could not distinguish unset from `Enabled`
+* Android: the plugin no longer forces the host app's `minSdkVersion` down to 15. On a project that did not set its own, that value won and the build failed outright — `androidx.appcompat` requires 21 and cordova-android defaults to 24. The platform default now applies, and an app that wants a specific floor still sets it in its own `config.xml`
 * iOS: `logPurchase` rejects currency codes outside ISO 4217, as Android already did — such a purchase event cannot be attributed by Facebook, and previously succeeded silently. **Behaviour change:** these calls now invoke the error callback
 
 ## Refactor
