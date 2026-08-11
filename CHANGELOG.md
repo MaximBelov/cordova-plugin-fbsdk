@@ -19,6 +19,7 @@
 * Added a Prettier config and reformatted the plugin's JavaScript sources, with a format check on pull requests
 * Documented at the top of the README why this fork exists, and pointed `homepage`, `bugs` and `<issue>` at this repository
 * The release workflow now publishes through npm Trusted Publishers on Node 24, with no npm token stored in the repository
+* The `demo/` app moved to cordova-ios 8.1.1, cordova-android 15.1.0 and `@awesome-cordova-plugins` 9.5.0, so reproducing a bug against it uses the platforms the reports come from
 * `plugin/tests` is installable again — it had no `package.json`, which current Cordova requires, so the suite could not be added to a project at all. It now runs green: 23 specs, 0 failures
 
 <a name="4.1.3"></a>
