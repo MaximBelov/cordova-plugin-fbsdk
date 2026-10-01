@@ -567,7 +567,8 @@
     } else if ([method isEqualToString:@"share"] || [method isEqualToString:@"feed"]) {
         // Create native params
         self.dialogCallbackId = command.callbackId;
-        FBSDKShareDialog *dialog = [FBSDKShareDialog alloc];
+        // Swift-backed class: alloc without init leaves stored properties (e.g. temporaryFiles) uninitialised and crashes in deinit.
+        FBSDKShareDialog *dialog = [[FBSDKShareDialog alloc] initWithViewController:nil content:nil delegate:nil];;
         dialog.fromViewController = [self topMostController];
         if (params[@"photo_image"]) {
             FBSDKSharePhoto *photo = [FBSDKSharePhoto alloc];
