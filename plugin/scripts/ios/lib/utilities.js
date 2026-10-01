@@ -44,7 +44,12 @@ Utilities.getPlistPath = function (context) {
   // is ever renamed again.
   try {
     const PlatformApi = require(path.join(platformPath, 'cordova', 'Api.js'));
-    const plistPath = path.join(new PlatformApi('ios', platformPath).locations.xcodeCordovaProj, 'App-Info.plist');
+    // Hand cordova-ios the CLI's own event emitter. Without it cordova-ios subscribes the console
+    // logger to it a second time, and every later log line of the Cordova run prints twice.
+    const plistPath = path.join(
+      new PlatformApi('ios', platformPath, common.events).locations.xcodeCordovaProj,
+      'App-Info.plist',
+    );
     if (fs.existsSync(plistPath)) {
       return plistPath;
     }
