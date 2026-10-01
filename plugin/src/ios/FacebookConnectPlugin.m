@@ -567,25 +567,39 @@
     } else if ([method isEqualToString:@"share"] || [method isEqualToString:@"feed"]) {
         // Create native params
         self.dialogCallbackId = command.callbackId;
-        FBSDKShareDialog *dialog = [FBSDKShareDialog alloc];
-        dialog.fromViewController = [self topMostController];
+        // FBSDKShareDialog is a Swift class. Allocating it without running an initialiser leaves its
+        // stored properties uninitialised, and its deinit walks one of them (temporaryFiles), so the
+        // app crashes with EXC_BAD_ACCESS once the SDK releases the dialog.
+        FBSDKShareDialog *dialog = [[FBSDKShareDialog alloc] initWithViewController:[self topMostController]
+                                                                            content:nil
+                                                                           delegate:self];
         if (params[@"photo_image"]) {
-            FBSDKSharePhoto *photo = [FBSDKSharePhoto alloc];
-        	NSString *photoImage = params[@"photo_image"];
-        	if (![photoImage isKindOfClass:[NSString class]]) {
-        		NSLog(@"photo_image must be a string");
-        	} else {
-        		NSData *photoImageData = [[NSData alloc]initWithBase64EncodedString:photoImage options:NSDataBase64DecodingIgnoreUnknownCharacters];
-        		if (!photoImageData) {
-        			NSLog(@"photo_image cannot be decoded");
-        		} else {
-        			photo.image = [UIImage imageWithData:photoImageData];
-        			photo.isUserGenerated = YES;
-        		}
-        	}
-        	FBSDKSharePhotoContent *content = [[FBSDKSharePhotoContent alloc] init];
-        	content.photos = @[photo];
-        	dialog.shareContent = content;
+            // FBSDKSharePhoto is a Swift class that exposes no plain -init, so the image has to be
+            // decoded before the photo is created. Sharing a photo with no image never succeeded
+            // anyway, it just left the callback hanging, so a bad image is reported as an error.
+            NSString *photoImage = params[@"photo_image"];
+            UIImage *image = nil;
+            if (![photoImage isKindOfClass:[NSString class]]) {
+                NSLog(@"photo_image must be a string");
+            } else {
+                NSData *photoImageData = [[NSData alloc] initWithBase64EncodedString:photoImage options:NSDataBase64DecodingIgnoreUnknownCharacters];
+                if (!photoImageData) {
+                    NSLog(@"photo_image cannot be decoded");
+                } else {
+                    image = [UIImage imageWithData:photoImageData];
+                }
+            }
+            if (!image) {
+                self.dialogCallbackId = nil;
+                CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
+                                                                  messageAsString:@"photo_image is not a valid base64 encoded image"];
+                [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+                return;
+            }
+            FBSDKSharePhoto *photo = [[FBSDKSharePhoto alloc] initWithImage:image isUserGenerated:YES];
+            FBSDKSharePhotoContent *content = [[FBSDKSharePhotoContent alloc] init];
+            content.photos = @[photo];
+            dialog.shareContent = content;
         } else {
         	FBSDKShareLinkContent *content = [[FBSDKShareLinkContent alloc] init];
         	content.contentURL = [NSURL URLWithString:params[@"href"]];
@@ -593,7 +607,6 @@
         	content.quote = params[@"quote"];
         	dialog.shareContent = content;
         }
-        dialog.delegate = self;
         // Adopt native share sheets with the following line
         if (params[@"share_sheet"]) {
         	dialog.mode = FBSDKShareDialogModeShareSheet;
@@ -609,16 +622,10 @@
         return;
     }
     else if ([method isEqualToString:@"apprequests"]) {
-        FBSDKGameRequestDialog *dialog = [FBSDKGameRequestDialog alloc];
-        dialog.delegate = self;
-        if (![dialog canShow]) {
-            CDVPluginResult *pluginResult;
-            pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
-                            messageAsString:@"Cannot show dialog"];
-            return;
-        }
-
-        FBSDKGameRequestContent *content = [FBSDKGameRequestContent alloc];
+        // FBSDKGameRequestContent and FBSDKGameRequestDialog are Swift classes, so they have to be
+        // initialised rather than merely allocated. The dialog's only initialiser takes the content,
+        // which is why the content is built first.
+        FBSDKGameRequestContent *content = [[FBSDKGameRequestContent alloc] init];
         NSString *actionType = params[@"actionType"];
         if (!actionType) {
             NSLog(@"Discarding invalid argument actionType");
@@ -647,8 +654,15 @@
         content.recipients = params[@"to"];
         content.title = params[@"title"];
 
+        FBSDKGameRequestDialog *dialog = [[FBSDKGameRequestDialog alloc] initWithContent:content delegate:self];
+        if (![dialog canShow]) {
+            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
+                                                              messageAsString:@"Cannot show dialog"];
+            [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+            return;
+        }
+
         self.gameRequestDialogCallbackId = command.callbackId;
-        dialog.content = content;
         [dialog show];
         return;
     }
