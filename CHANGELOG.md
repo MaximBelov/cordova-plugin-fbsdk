@@ -1,3 +1,13 @@
+<a name="5.0.2"></a>
+
+# [5.0.2](https://github.com/MaximBelov/cordova-plugin-fbsdk/releases/tag/v5.0.2) (2026-10-01)
+
+## Bug Fixes
+
+* iOS: `showDialog` no longer crashes the app once a dialog is dismissed. It built `FBSDKShareDialog`, `FBSDKSharePhoto`, `FBSDKGameRequestDialog` and `FBSDKGameRequestContent` with `+alloc` and no initialiser, and all four are Swift classes, so their stored properties were left as null pointers; sharing or cancelling the composer brought the app down with `EXC_BAD_ACCESS` inside `ShareDialog`'s `deinit`, which walks a stored array of temporary files
+* iOS: `showDialog` with a `photo_image` that is not decodable base64 now reports an error to JavaScript. It used to share a photo carrying no image, which could never succeed and left the callback waiting forever
+* iOS: `showDialog` with `method: 'apprequests'` now delivers a result when the dialog cannot be shown. It built the error but returned without sending it, so the failure never reached JavaScript
+
 <a name="5.0.1"></a>
 
 # [5.0.1](https://github.com/MaximBelov/cordova-plugin-fbsdk/releases/tag/v5.0.1) (2026-10-01)
