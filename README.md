@@ -75,6 +75,8 @@ Both are run on every pull request by the [iOS](.github/workflows/ios.yaml) and 
 
 The specs deliberately need no Facebook login: they cover the API surface, the app-events calls, and the error paths that a session-less app hits. Anything that needs a real sign-in lives in the suite's manual section, which the harness exposes under "Manual Tests" when you open the app it builds.
 
+The hook scripts in [`plugin/scripts`](plugin/scripts) run inside the Cordova CLI's own process, not in the app, so the suite above does not check what they do. [`test`](test) covers them in plain Node with no simulator: `npm run test:hooks`, which the [Hooks](.github/workflows/hooks.yaml) workflow also runs on every pull request.
+
 ## Compatibility
 
   * Cordova >= 5.0.0

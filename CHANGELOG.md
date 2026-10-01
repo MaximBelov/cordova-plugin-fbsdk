@@ -1,3 +1,15 @@
+<a name="5.0.1"></a>
+
+# [5.0.1](https://github.com/MaximBelov/cordova-plugin-fbsdk/releases/tag/v5.0.1) (2026-10-01)
+
+## Bug Fixes
+
+* iOS: Cordova's log is no longer doubled during an iOS prepare or build. Every line it printed after the plugin's `after_prepare` hook appeared twice, because the hook created cordova-ios's platform API without passing it the Cordova CLI's event emitter, so cordova-ios subscribed the console logger a second time
+
+## Chore
+
+* The iOS hook's `Info.plist` lookup has a unit test, which runs on every pull request with Node's built-in test runner and needs no simulator — `npm run test:hooks` runs the same thing locally
+
 <a name="5.0.0"></a>
 
 # [5.0.0](https://github.com/MaximBelov/cordova-plugin-fbsdk/releases/tag/v5.0.0) (2026-08-11)

@@ -1,0 +1,20 @@
+# The hook scripts in plugin/scripts run inside the Cordova CLI's process, and the device
+# suites only check the built app, so a hook that doubles the build log still passes them.
+name: Hooks
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  test:
+    name: Hook scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run test:hooks
