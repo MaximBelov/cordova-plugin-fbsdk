@@ -11,7 +11,7 @@
   },
   "devDependencies": {
     "cordova": "13.0.0",
-    "cordova-paramedic": "git+https://github.com/MaximBelov/cordova-paramedic.git#cc42e34e204cc15971ec842deae62b3d70871d7b",
+    "cordova-paramedic": "npm:cordova-paramedic-hotfix@2.0.0-hotfix.1",
     "prettier": "3.6.2"
   }
 }
