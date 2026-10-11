@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # The actions in .github/workflows, so a new major is a pull request and not something found late.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+
+  # cordova, cordova-paramedic and prettier, the toolchain of the checks and of the device suites.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dev-dependencies:
+        dependency-type: development
