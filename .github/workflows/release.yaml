@@ -1,31 +1,70 @@
+# Publishes plugin/ to npm and tags the release when the version in plugin/package.json is new.
+#
+# It runs when one of the suites of a commit on master or develop has finished, and publishes only
+# when ALL of them (Checks, iOS Testsuite, Android Testsuite) have passed for that commit: before,
+# it ran on every push, in parallel with the suites, so a red master could still be released. The
+# last suite to finish is the one that finds the rest green; the others find something missing
+# and stop. A commit the device suites skip (only docs changed) is never released, and a release
+# commit always changes plugin/package.json, so it is never one of those.
 name: Release
 
 on:
-  push:
-    branches:
-      - master
-      - develop
+  workflow_run:
+    workflows: [Checks, iOS Testsuite, Android Testsuite]
+    types: [completed]
+    branches: [master, develop]
   workflow_dispatch: # so a release can be re-cut when nothing in this repo changed
 
 permissions:
+  actions: read # the results of the other suites of the commit
   contents: write # tag the release once the publish succeeds
   id-token: write # npm Trusted Publishers (OIDC) and build provenance
 
+# One release per commit, however many suites finish at once.
+concurrency:
+  group: release-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
+env:
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+
 jobs:
   build:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ env.SHA }}
           fetch-depth: 0 # tags, so the release step can tell what already exists
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Every suite of this commit has passed
+        id: gate
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for name in "Checks" "iOS Testsuite" "Android Testsuite"; do
+            result=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$SHA&per_page=100" \
+              --jq "[.workflow_runs[] | select(.name == \"$name\")] | sort_by(.created_at) | last | .conclusion // \"missing\"")
+            if [ "$result" != "success" ]; then
+              echo "ready=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::$name is '$result' for $SHA: not releasing from this run."
+              exit 0
+            fi
+          done
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
       - name: Read the version and check whether it is new
         id: version
+        if: steps.gate.outputs.ready != 'false'
         run: |
           VERSION=$(node -p "require('./plugin/package.json').version")
           echo "value=$VERSION" >> "$GITHUB_OUTPUT"
@@ -50,13 +89,13 @@ jobs:
       - name: Publish
         if: steps.version.outputs.new == 'true'
         working-directory: ./plugin
-        run: npm publish --access public --tag ${{ github.ref_name == 'master' && 'latest' || 'next' }}
+        run: npm publish --access public --tag ${{ env.BRANCH == 'master' && 'latest' || 'next' }}
 
       # The changelog has always linked to releases/tag/vX.Y.Z and every version through
       # 4.1.3 has a tag, so this automates what was being done by hand -- and only after the
       # publish succeeded, so a tag never points at a version that is not on npm.
       - name: Tag and publish release notes
-        if: steps.version.outputs.new == 'true' && github.ref_name == 'master'
+        if: steps.version.outputs.new == 'true' && env.BRANCH == 'master'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.value }}
@@ -80,4 +119,4 @@ jobs:
           gh release create "v$VERSION" \
             --title "v$VERSION" \
             --notes-file release-notes.md \
-            --target "$GITHUB_SHA"
+            --target "$SHA"
