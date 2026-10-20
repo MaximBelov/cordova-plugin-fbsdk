@@ -37,9 +37,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-15
-            ios: 18.x
-            xcode: 16
           - os: macos-26
             ios: 26.x
             xcode: 26
