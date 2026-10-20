@@ -11,7 +11,7 @@
   },
   "devDependencies": {
     "cordova": "13.0.0",
-    "cordova-paramedic": "npm:cordova-paramedic-hotfix@2.0.0-hotfix.1",
+    "cordova-paramedic": "npm:cordova-paramedic-hotfix@2.0.0-hotfix.3",
     "prettier": "3.6.2"
   }
 }
