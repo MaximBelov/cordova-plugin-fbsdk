@@ -95,6 +95,57 @@ exports.defineAutoTests = function () {
       );
     });
 
+    describe('setAutoInitEnabled', function () {
+      it('should be a function', function () {
+        expect(typeof facebookConnectPlugin.setAutoInitEnabled).toEqual('function');
+      });
+
+      // Ends with auto-init back on, so the tests after this one see the SDK as the suite started it.
+      it(
+        'should refuse an event while auto-init is off, and allow it again once it is on',
+        function (done) {
+          function fail(where) {
+            return function (error) {
+              expect('failed at ' + where + ': ' + JSON.stringify(error)).toEqual('');
+              facebookConnectPlugin.setAutoInitEnabled(true, done, done);
+            };
+          }
+
+          facebookConnectPlugin.setAutoInitEnabled(
+            false,
+            function () {
+              facebookConnectPlugin.logEvent(
+                'test-event-auto-init-off',
+                {},
+                0,
+                fail('logEvent while off succeeded'),
+                function (error) {
+                  expect(String(error)).toContain('auto-init is off');
+                  facebookConnectPlugin.setAutoInitEnabled(
+                    true,
+                    function () {
+                      facebookConnectPlugin.logEvent(
+                        'test-event-auto-init-on',
+                        {},
+                        0,
+                        function () {
+                          done();
+                        },
+                        fail('logEvent once on'),
+                      );
+                    },
+                    fail('setAutoInitEnabled(true)'),
+                  );
+                },
+              );
+            },
+            fail('setAutoInitEnabled(false)'),
+          );
+        },
+        APP_EVENTS_TIMEOUT,
+      );
+    });
+
     describe('logPurchase', function () {
       it('should be defined', function () {
         expect(facebookConnectPlugin.logPurchase).toBeDefined();

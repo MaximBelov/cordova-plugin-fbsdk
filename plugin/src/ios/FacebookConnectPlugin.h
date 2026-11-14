@@ -26,6 +26,7 @@
 - (void)setApplicationName:(CDVInvokedUrlCommand *)command;
 - (void)getLoginStatus:(CDVInvokedUrlCommand *)command;
 - (void)getAccessToken:(CDVInvokedUrlCommand *)command;
+- (void)setAutoInitEnabled:(CDVInvokedUrlCommand *)command;
 - (void)setAutoLogAppEventsEnabled:(CDVInvokedUrlCommand *)command;
 - (void)setAdvertiserIDCollectionEnabled:(CDVInvokedUrlCommand *)command;
 - (void)setAdvertiserTrackingEnabled:(CDVInvokedUrlCommand *)command;

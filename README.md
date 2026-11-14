@@ -573,6 +573,33 @@ facebookConnectPlugin.setAutoLogAppEventsEnabled(true, function() {
 });
 ```
 
+### Delaying SDK initialisation
+
+Turning auto-logging off stops the SDK's own app events, but the SDK still talks to Facebook once it is initialised: it fetches the app's settings and event configuration and, on iOS, can send a daily `fb_mobile_ate_status` ping. To send nothing at all until the user has consented, also set *FACEBOOK_AUTO_INIT* to "false" (default is true).
+
+```bash
+$ cordova plugin add cordova-plugin-fbsdk --save --variable APP_ID="123456789" --variable APP_NAME="myApplication" --variable CLIENT_TOKEN="abcd1234" --variable FACEBOOK_AUTO_LOG_APP_EVENTS="false" --variable FACEBOOK_ADVERTISER_ID_COLLECTION="false" --variable FACEBOOK_AUTO_INIT="false"
+```
+
+Then initialise the SDK once the user consents:
+
+```js
+facebookConnectPlugin.setAutoInitEnabled(true, function() {
+  console.log('setAutoInitEnabled success');
+}, function() {
+  console.error('setAutoInitEnabled failure');
+});
+```
+
+The choice is remembered across launches. `setAutoInitEnabled(false)` takes the SDK back out of use from the next launch: an SDK that has been initialised cannot be shut down within the same process, but the plugin stops handing it anything straight away.
+
+While auto-init is off, the calls that would send something to Facebook (`logEvent`, `logPurchase`, `activateApp`, `login`, `loginWithLimitedTracking`, `reauthorizeDataAccess`, `showDialog`, `api`, `getDeferredApplink`) call their error callback instead of being queued. The settings calls (`setAutoLogAppEventsEnabled`, `setAdvertiserIDCollectionEnabled`, `setAdvertiserTrackingEnabled` and so on) still work.
+
+How it works:
+
+- **Android** uses the SDK's own switch, `com.facebook.sdk.AutoInitEnabled`, and `FacebookSdk.setAutoInitEnabled`. The SDK still starts, but it refuses its own Graph requests until it is fully initialised.
+- **iOS** has no such switch in the SDK any more, so the plugin does not initialise the SDK at launch. It keeps the launch options and initialises with them when `setAutoInitEnabled(true)` is called.
+
 ## Collection of Advertiser IDs
 
 To disable collection of `advertiser-id`, please set the *FACEBOOK_ADVERTISER_ID_COLLECTION* variable to "false" (default is true).

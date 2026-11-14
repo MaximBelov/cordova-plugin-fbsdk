@@ -13,6 +13,67 @@
 #import "FacebookConnectPlugin.h"
 #import <objc/runtime.h>
 
+#pragma mark - Deferred SDK initialisation
+
+// FACEBOOK_AUTO_INIT=false keeps the Facebook SDK uninitialised until the app calls
+// setAutoInitEnabled(true), typically once the user has consented. An uninitialised SDK sends
+// nothing: it fetches no server configuration, sends no ATE ping and logs no event, because it only
+// starts doing any of that from ApplicationDelegate.initializeSDK. The SDK itself has no switch for
+// this on iOS any more (`autoInit` was removed from FBSDKSettings), so the plugin keeps it.
+//
+// File-level rather than on the plugin instance: the AppDelegate category below runs at launch,
+// before Cordova has created the plugin.
+
+static NSString *const FBCPAutoInitInfoKey = @"FacebookConnectPluginAutoInitEnabled";
+static NSString *const FBCPAutoInitDefaultsKey = @"FacebookConnectPluginAutoInitEnabled";
+static BOOL FBCPSdkInitialised = NO;
+static NSDictionary *FBCPPendingLaunchOptions = nil;
+
+// The app's runtime choice wins over the build-time one. The Info.plist value is a string so that a
+// hook rewriting the plist cannot blank it (a top-level boolean false has been seen turned into "").
+static BOOL FBCPAutoInitEnabled(void) {
+    id stored = [[NSUserDefaults standardUserDefaults] objectForKey:FBCPAutoInitDefaultsKey];
+    if ([stored isKindOfClass:[NSNumber class]]) {
+        return [stored boolValue];
+    }
+    id declared = [[NSBundle mainBundle] objectForInfoDictionaryKey:FBCPAutoInitInfoKey];
+    if ([declared isKindOfClass:[NSNumber class]]) {
+        return [declared boolValue];
+    }
+    if ([declared isKindOfClass:[NSString class]]) {
+        return ![[(NSString *)declared lowercaseString] isEqualToString:@"false"];
+    }
+    return YES;
+}
+
+// Whether calls into the SDK may go ahead right now: initialised in this process, and not switched
+// off since. After setAutoInitEnabled(false) the SDK stays initialised until the next launch, but
+// the plugin stops handing it anything.
+static BOOL FBCPSdkUsable(void) {
+    return FBCPSdkInitialised && FBCPAutoInitEnabled();
+}
+
+static void FBCPInitialiseSdk(UIApplication *application, NSDictionary *launchOptions) {
+    if (FBCPSdkInitialised) {
+        return;
+    }
+    if (!FBCPAutoInitEnabled()) {
+        // Keep the real launch options for a later setAutoInitEnabled(true): the SDK reads only the
+        // options it is first handed.
+        if (launchOptions.count > 0 || FBCPPendingLaunchOptions == nil) {
+            FBCPPendingLaunchOptions = launchOptions ?: @{};
+        }
+        return;
+    }
+    FBCPSdkInitialised = YES;
+    // Called after launch, the SDK notices the app is already active and does the didBecomeActive
+    // work itself (ApplicationDelegate.handleDeferredActivationIfNeeded).
+    [[FBSDKApplicationDelegate sharedInstance] application:application
+                             didFinishLaunchingWithOptions:launchOptions ?: FBCPPendingLaunchOptions ?: @{}];
+    FBCPPendingLaunchOptions = nil;
+    [FBSDKProfile enableUpdatesOnAccessTokenChange:YES];
+}
+
 @interface FacebookConnectPlugin ()
 
 @property (strong, nonatomic) NSString* dialogCallbackId;
@@ -20,7 +81,6 @@
 @property (nonatomic, assign) FBSDKLoginTracking loginTracking;
 @property (strong, nonatomic) NSString* gameRequestDialogCallbackId;
 @property (nonatomic, assign) BOOL applicationWasActivated;
-@property (nonatomic, assign) BOOL sdkInit;
 
 - (NSDictionary *)loginResponseObject;
 - (NSDictionary *)limitedLoginResponseObject;
@@ -70,22 +130,16 @@
 }
 
 - (void) initFbSdkWithOpts:(NSDictionary *) launchOptions {
-    if (self.sdkInit) {
-        return;
-    }
-    self.sdkInit = YES;
-
-    if (launchOptions == nil) {
-        //launchOptions is nil when not start because of notification or url open
-        launchOptions = [NSDictionary dictionary];
-    }
-
-    [[FBSDKApplicationDelegate sharedInstance] application:[UIApplication sharedApplication] didFinishLaunchingWithOptions:launchOptions];
-
-    [FBSDKProfile enableUpdatesOnAccessTokenChange:YES];
+    // launchOptions is nil when the app was not started by a notification or a URL.
+    FBCPInitialiseSdk([UIApplication sharedApplication], launchOptions);
 }
 
 - (void) applicationDidBecomeActive:(NSNotification *) notification {
+    // Before initialisation `isAutoLogAppEventsEnabled` answers YES (the SDK has no store to read
+    // yet), so without this check an uninitialised SDK would be asked to activate the app.
+    if (!FBCPSdkUsable()) {
+        return;
+    }
     if (FBSDKSettings.sharedSettings.isAutoLogAppEventsEnabled) {
         [FBSDKAppEvents.shared activateApp];
     }
@@ -96,10 +150,25 @@
 }
 
 - (void) handleOpenURLWithAppSourceAndAnnotation:(NSNotification *) notification {
+    if (!FBCPSdkUsable()) {
+        return;
+    }
     NSMutableDictionary * options = [notification object];
     NSURL* url = options[@"url"];
 
     [[FBSDKApplicationDelegate sharedInstance] application:[UIApplication sharedApplication] openURL:url options:options];
+}
+
+// Refuses an action that would send something to Facebook while the SDK may not be used, rather
+// than letting the SDK queue it and send it once initialised.
+- (BOOL) requireSdk:(CDVInvokedUrlCommand *)command {
+    if (FBCPSdkUsable()) {
+        return YES;
+    }
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
+                                                messageAsString:@"The Facebook SDK is not initialised: auto-init is off. Call setAutoInitEnabled(true) first."];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    return NO;
 }
 
 #pragma mark - Cordova commands
@@ -197,6 +266,19 @@
     [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
 }
 
+- (void)setAutoInitEnabled:(CDVInvokedUrlCommand *)command {
+    BOOL enabled = [[command argumentAtIndex:0] boolValue];
+    [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:FBCPAutoInitDefaultsKey];
+    if (enabled) {
+        FBCPInitialiseSdk([UIApplication sharedApplication], nil);
+        if (self.applicationWasActivated == NO) {
+            self.applicationWasActivated = YES;
+            [self enableHybridAppEvents];
+        }
+    }
+    [self returnGenericSuccess:command.callbackId];
+}
+
 - (void)setAutoLogAppEventsEnabled:(CDVInvokedUrlCommand *)command {
     BOOL enabled = [[command argumentAtIndex:0] boolValue];
     [FBSDKSettings.sharedSettings setAutoLogAppEventsEnabled:enabled];
@@ -273,6 +355,9 @@
 }
 
 - (void)logEvent:(CDVInvokedUrlCommand *)command {
+    if (![self requireSdk:command]) {
+        return;
+    }
     if ([command.arguments count] == 0) {
         // Not enough arguments
         [self returnInvalidArgsError:command.callbackId];
@@ -308,6 +393,9 @@
 }
 
 - (void)logPurchase:(CDVInvokedUrlCommand *)command {
+    if (![self requireSdk:command]) {
+        return;
+    }
     if ([command.arguments count] < 2 || [command.arguments count] > 3 ) {
         [self returnInvalidArgsError:command.callbackId];
         return;
@@ -340,6 +428,9 @@
 }
 
 - (void)login:(CDVInvokedUrlCommand *)command {
+    if (![self requireSdk:command]) {
+        return;
+    }
     NSLog(@"Starting login");
     CDVPluginResult *pluginResult;
     NSArray *permissions = nil;
@@ -399,6 +490,9 @@
 }
 
 - (void)loginWithLimitedTracking:(CDVInvokedUrlCommand *)command {
+    if (![self requireSdk:command]) {
+        return;
+    }
     if ([command.arguments count] == 1) {
         NSString *nonceErrorMessage = @"No nonce specified";
         CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
@@ -485,6 +579,9 @@
 }
 
 - (void) reauthorizeDataAccess:(CDVInvokedUrlCommand *)command {
+    if (![self requireSdk:command]) {
+        return;
+    }
     if (self.loginTracking == FBSDKLoginTrackingLimited) {
         [self returnLimitedLoginMethodError:command.callbackId];
         return;
@@ -532,6 +629,9 @@
 
 - (void) showDialog:(CDVInvokedUrlCommand*)command
 {
+    if (![self requireSdk:command]) {
+        return;
+    }
     if ([command.arguments count] == 0) {
         CDVPluginResult *pluginResult;
         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
@@ -687,6 +787,9 @@
 
 - (void) graphApi:(CDVInvokedUrlCommand *)command
 {
+    if (![self requireSdk:command]) {
+        return;
+    }
     if (self.loginTracking == FBSDKLoginTrackingLimited) {
         [self returnLimitedLoginMethodError:command.callbackId];
         return;
@@ -808,6 +911,9 @@
 
 - (void) getDeferredApplink:(CDVInvokedUrlCommand *) command
 {
+    if (![self requireSdk:command]) {
+        return;
+    }
     [FBSDKAppLinkUtility fetchDeferredAppLink:^(NSURL *url, NSError *error) {
         if (error) {
             // If the SDK has a message for the user, surface it.
@@ -828,6 +934,9 @@
 
 - (void) activateApp:(CDVInvokedUrlCommand *)command
 {
+    if (![self requireSdk:command]) {
+        return;
+    }
     [FBSDKAppEvents.shared activateApp];
     [self returnGenericSuccess:command.callbackId];
 }
@@ -1112,7 +1221,8 @@ void FBMethodSwizzle(Class c, SEL originalSelector) {
     // for attribution and deferred deep links, and it only ever reads the options it is given
     // first: ApplicationDelegate.application(_:didFinishLaunchingWithOptions:) is guarded by
     // `!isAppLaunched, !hasInitializeBeenCalled`.
-    [[FBSDKApplicationDelegate sharedInstance] application:application didFinishLaunchingWithOptions:launchOptions];
+    // With FACEBOOK_AUTO_INIT=false this only keeps the launch options for later.
+    FBCPInitialiseSdk(application, launchOptions);
 
     // Call existing method
     return [self FacebookConnectPlugin_application:application didFinishLaunchingWithOptions:launchOptions];
@@ -1127,8 +1237,11 @@ void FBMethodSwizzle(Class c, SEL originalSelector) {
     if (!url) {
         return NO;
     }
-    // Required by FBSDKCoreKit for deep linking/to complete login
-    [[FBSDKApplicationDelegate sharedInstance] application:application openURL:url sourceApplication:[options valueForKey:@"UIApplicationOpenURLOptionsSourceApplicationKey"] annotation:0x0];
+    // Required by FBSDKCoreKit for deep linking/to complete login. Skipped while the SDK may not be
+    // used: its URL handling checks server features and logs app-link events.
+    if (FBCPSdkUsable()) {
+        [[FBSDKApplicationDelegate sharedInstance] application:application openURL:url sourceApplication:[options valueForKey:@"UIApplicationOpenURLOptionsSourceApplicationKey"] annotation:0x0];
+    }
     
     // NOTE: Cordova will run a JavaScript method here named handleOpenURL. This functionality is deprecated
     // but will cause you to see JavaScript errors if you do not have window.handleOpenURL defined:
