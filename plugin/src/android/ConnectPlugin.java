@@ -250,8 +250,9 @@ public class ConnectPlugin extends CordovaPlugin {
         // Developers can observe how frequently users activate their app by logging an app activation event.
         // Only while automatic logging is on, as on iOS: an explicit activateApp publishes the install and
         // starts session tracking whatever FACEBOOK_AUTO_LOG_APP_EVENTS says, so calling it unconditionally
-        // here sent both before the user had consented.
-        if (FacebookSdk.getAutoLogAppEventsEnabled()) {
+        // here sent both before the user had consented. Auto-init is checked too: an SDK that is not fully
+        // initialised still sends a POST (the install, the activation) before its own response gate refuses it.
+        if (FacebookSdk.getAutoInitEnabled() && FacebookSdk.getAutoLogAppEventsEnabled()) {
             AppEventsLogger.activateApp(cordova.getActivity().getApplication());
         }
     }
@@ -263,9 +264,28 @@ public class ConnectPlugin extends CordovaPlugin {
         callbackManager.onActivityResult(requestCode, resultCode, intent);
     }
 
+    /**
+     * Actions that send something to Facebook, and so must wait until the SDK may be initialised. With
+     * FACEBOOK_AUTO_INIT=false they are refused until setAutoInitEnabled(true), and again after
+     * setAutoInitEnabled(false), rather than being queued and sent later.
+     */
+    private static final java.util.Set<String> ACTIONS_NEEDING_SDK = new java.util.HashSet<>(java.util.Arrays.asList(
+        "login", "reauthorizeDataAccess", "logEvent", "logPurchase", "showDialog", "graphApi",
+        "getDeferredApplink", "activateApp"
+    ));
+
     @Override
     public boolean execute(String action, JSONArray args, final CallbackContext callbackContext) throws JSONException {
-        if (action.equals("getApplicationId")) {
+        if (ACTIONS_NEEDING_SDK.contains(action) && !FacebookSdk.getAutoInitEnabled()) {
+            callbackContext.error("The Facebook SDK is not initialised: auto-init is off. Call setAutoInitEnabled(true) first.");
+            return true;
+        }
+
+        if (action.equals("setAutoInitEnabled")) {
+            executeSetAutoInitEnabled(args, callbackContext);
+            return true;
+
+        } else if (action.equals("getApplicationId")) {
             callbackContext.success(FacebookSdk.getApplicationId());
             return true;
 
@@ -632,6 +652,14 @@ public class ConnectPlugin extends CordovaPlugin {
         cordova.setActivityResultCallback(this);
         LoginManager loginManager = LoginManager.getInstance();
         loginManager.logIn(cordova.getActivity(), permissions);
+    }
+
+    private void executeSetAutoInitEnabled(JSONArray args, CallbackContext callbackContext) {
+        boolean enabled = args.optBoolean(0);
+        // Persisted by the SDK. true also fully initialises it now, so its network requests go out from here on;
+        // false takes effect from the next launch, since a fully initialised SDK cannot be taken back down.
+        FacebookSdk.setAutoInitEnabled(enabled);
+        callbackContext.success();
     }
 
     private void executeSetAutoLogAppEventsEnabled(JSONArray args, CallbackContext callbackContext) {

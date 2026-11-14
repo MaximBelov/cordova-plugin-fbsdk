@@ -1,3 +1,16 @@
+<a name="5.1.0"></a>
+
+# [5.1.0](https://github.com/MaximBelov/cordova-plugin-fbsdk/releases/tag/v5.1.0) (2026-11-14)
+
+## Features
+
+* `FACEBOOK_AUTO_INIT` and `setAutoInitEnabled(enabled)`: keep the Facebook SDK uninitialised until the user consents, so nothing at all is sent before then. With auto-logging off the SDK still fetched its settings and event configuration from Facebook on launch and on every foreground, and on iOS could send a daily `fb_mobile_ate_status` ping with device information; neither looked at the auto-log setting. On Android this is the SDK's own `AutoInitEnabled`. On iOS, where the SDK no longer has that switch, the plugin holds back the initialisation and runs it, with the original launch options, when `setAutoInitEnabled(true)` is called. The default is unchanged
+
+## Bug Fixes
+
+* Android: `onResume` no longer activates the app while auto-init is off. An SDK that is not fully initialised still sends a POST before its own response check refuses it
+* iOS: the plugin no longer asks an uninitialised SDK to activate the app. Before initialisation `isAutoLogAppEventsEnabled` answers YES, because the SDK has nothing to read it from yet
+
 <a name="5.0.3"></a>
 
 # [5.0.3](https://github.com/MaximBelov/cordova-plugin-fbsdk/releases/tag/v5.0.3) (2026-11-14)

@@ -63,6 +63,10 @@ exports.reauthorizeDataAccess = function (s, f) {
   exec(s, f, 'FacebookConnectPlugin', 'reauthorizeDataAccess', []);
 };
 
+exports.setAutoInitEnabled = function (enabled, s, f) {
+  exec(s, f, 'FacebookConnectPlugin', 'setAutoInitEnabled', [enabled]);
+};
+
 exports.setAutoLogAppEventsEnabled = function (enabled, s, f) {
   exec(s, f, 'FacebookConnectPlugin', 'setAutoLogAppEventsEnabled', [enabled]);
 };

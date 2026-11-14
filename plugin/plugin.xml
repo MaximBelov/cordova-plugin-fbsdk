@@ -2,7 +2,7 @@
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
         xmlns:android="http://schemas.android.com/apk/res/android"
         id="cordova-plugin-fbsdk"
-        version="5.0.3">
+        version="5.1.0">
 
     <name>Facebook Connect</name>
 
@@ -25,6 +25,7 @@
     <preference name="FACEBOOK_URL_SCHEME_SUFFIX" default=" " />
     <preference name="OTHER_APP_SCHEMES" default=" " />
     <preference name="FACEBOOK_AUTO_LOG_APP_EVENTS" default="true" />
+    <preference name="FACEBOOK_AUTO_INIT" default="true" />
     <preference name="FACEBOOK_HYBRID_APP_EVENTS" default="false" />
     <preference name="FACEBOOK_ADVERTISER_ID_COLLECTION" default="true" />
     <preference name="FACEBOOK_ANDROID_SDK_VERSION" default="18.3.0"/>
@@ -60,6 +61,7 @@
             <string name="fb_client_token">$CLIENT_TOKEN</string>
             <string name="fb_app_name">$APP_NAME</string>
             <bool name="fb_auto_log_app_events_enabled">$FACEBOOK_AUTO_LOG_APP_EVENTS</bool>
+            <bool name="fb_auto_init_enabled">$FACEBOOK_AUTO_INIT</bool>
             <bool name="fb_hybrid_app_events">$FACEBOOK_HYBRID_APP_EVENTS</bool>
             <bool name="fb_advertiser_id_collection_enabled">$FACEBOOK_ADVERTISER_ID_COLLECTION</bool>
         </config-file>
@@ -78,6 +80,7 @@
             <meta-data android:name="com.facebook.sdk.ClientToken" android:value="@string/fb_client_token"/>
             <meta-data android:name="com.facebook.sdk.ApplicationName" android:value="@string/fb_app_name" />
             <meta-data android:name='com.facebook.sdk.AutoLogAppEventsEnabled' android:value='@bool/fb_auto_log_app_events_enabled'/>
+            <meta-data android:name="com.facebook.sdk.AutoInitEnabled" android:value="@bool/fb_auto_init_enabled" />
             <meta-data android:name="com.facebook.sdk.AdvertiserIDCollectionEnabled" android:value='@bool/fb_advertiser_id_collection_enabled' />
             <activity android:name="com.facebook.FacebookActivity"
               android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
@@ -134,6 +137,12 @@
 
         <config-file target="*-Info.plist" parent="FacebookAutoLogAppEventsEnabled_PLACEHOLDER">
             <string>FACEBOOK_AUTO_LOG_APP_EVENTS_PLACEHOLDER</string>
+        </config-file>
+
+        <!-- A string, not a boolean: hooks that rewrite Info.plist (branch-cordova-sdk's, for one) turn a
+             top-level false into an empty string, which would read as "not set". -->
+        <config-file target="*-Info.plist" parent="FacebookConnectPluginAutoInitEnabled">
+            <string>$FACEBOOK_AUTO_INIT</string>
         </config-file>
 
         <config-file target="*-Info.plist" parent="FacebookHybridAppEvents">
