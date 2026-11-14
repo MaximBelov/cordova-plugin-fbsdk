@@ -248,7 +248,12 @@ public class ConnectPlugin extends CordovaPlugin {
     public void onResume(boolean multitasking) {
         super.onResume(multitasking);
         // Developers can observe how frequently users activate their app by logging an app activation event.
-        AppEventsLogger.activateApp(cordova.getActivity().getApplication());
+        // Only while automatic logging is on, as on iOS: an explicit activateApp publishes the install and
+        // starts session tracking whatever FACEBOOK_AUTO_LOG_APP_EVENTS says, so calling it unconditionally
+        // here sent both before the user had consented.
+        if (FacebookSdk.getAutoLogAppEventsEnabled()) {
+            AppEventsLogger.activateApp(cordova.getActivity().getApplication());
+        }
     }
 
     @Override

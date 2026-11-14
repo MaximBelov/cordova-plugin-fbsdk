@@ -1,3 +1,11 @@
+<a name="5.0.3"></a>
+
+# [5.0.3](https://github.com/MaximBelov/cordova-plugin-fbsdk/releases/tag/v5.0.3) (2026-11-14)
+
+## Bug Fixes
+
+* Android: with `FACEBOOK_AUTO_LOG_APP_EVENTS` set to `false`, the plugin no longer reports an app install and activation every time the app resumes. `onResume` called `AppEventsLogger.activateApp` unconditionally, and in the Android SDK that explicit call publishes the install and starts session tracking whatever the auto-log setting is, so the "Delaying Automatic Event Collection" setup in the README did nothing on Android. It now activates only while auto-logging is enabled, as iOS already did. Once `setAutoLogAppEventsEnabled(true)` is called, the next resume activates as before
+
 <a name="5.0.2"></a>
 
 # [5.0.2](https://github.com/MaximBelov/cordova-plugin-fbsdk/releases/tag/v5.0.2) (2026-10-01)
